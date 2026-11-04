@@ -1,9 +1,9 @@
 from hms.hms_enums import Status
-
+from config import MED_THRESHOLDS
 class AlarmHandler:
-    def __init__(self, dbhandler, med_thresholds):
+    def __init__(self, dbhandler):
         self.dbhandler = dbhandler
-        self.med_thresholds = med_thresholds
+        self.med_thresholds = MED_THRESHOLDS
 
     def main(self):
         for medicine, threshold in self.med_thresholds.items():

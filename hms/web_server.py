@@ -6,12 +6,13 @@ import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any, Optional
+from config import WEB_ADDRESS
 
 PAGE = Path(__file__).parent / "web" / "index.html"
 
 
 class WebServer:
-    def __init__(self, address: tuple[str, int]) -> None:
+    def __init__(self, address: tuple[str, int] =WEB_ADDRESS ) -> None:
         self._lock = threading.Lock()
         self._snapshot: Optional[dict[str, Any]] = None
         self._updated_at = 0.0
