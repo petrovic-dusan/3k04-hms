@@ -3,8 +3,8 @@ from dataclasses import asdict
 
 class AdcMsg:
     #mandatory
-    unit_id
-    message_type : str
+    unit_id = None
+    message_type = None
     #optional fields
     medicine = None
     new_qty = None
@@ -13,7 +13,7 @@ class AdcMsg:
     request_id = None
     status = None
 
-    def from_dict(cls, data) -> AdcMsg:
+    def from_dict(cls, data):
         # data is basically the json asa dictionary
         extra = data.get("additional_fields") or {}
         try:

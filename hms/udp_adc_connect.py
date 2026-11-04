@@ -4,7 +4,7 @@ import json
 import socket
 
 from hms.adc_msgs import AdcMsg
-from config import  HMS_ADDRESS, ADC_UNITS
+from hms.config import  HMS_ADDRESS, ADC_UNITS
 
 class UdpTransport:
     def __init__(self, address: tuple[str, int] = HMS_ADDRESS, units: dict[str, tuple[str, int]] = ADC_UNITS) -> None:

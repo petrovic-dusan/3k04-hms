@@ -14,7 +14,7 @@ class ADCCommProcessor:
     def __init__(self, dbhandler, publishFn):
         self.dbhandler = dbhandler
         self.publish = publishFn
-        self.clock = time.monotonice
+        self.clock = time.monotonic
         self.q =  deque()
         self.known_adcs = {}
 

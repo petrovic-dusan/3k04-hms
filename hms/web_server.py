@@ -6,7 +6,7 @@ import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any, Optional
-from config import WEB_ADDRESS
+from hms.config import WEB_ADDRESS
 
 PAGE = Path(__file__).parent / "web" / "index.html"
 

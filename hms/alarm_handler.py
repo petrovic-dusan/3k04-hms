@@ -1,5 +1,5 @@
 from hms.hms_enums import Status
-from config import MED_THRESHOLDS
+from hms.config import MED_THRESHOLDS
 class AlarmHandler:
     def __init__(self, dbhandler):
         self.dbhandler = dbhandler

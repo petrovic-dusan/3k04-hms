@@ -10,9 +10,9 @@ STATUS_ALERT = "unitStatus"
 class DatabaseHandler:
     def __init__(self):
         self.clock =  time.monotonic
-        self.inventory: dict[str, dict[str, int]] = {}
-        self.statuses: dict[str, Status] = {}
-        self.alerts: list[dict[str, Any]] = []
+        self.inventory = {}
+        self.statuses = {}
+        self.alerts = []
 
     # REGULAR GET/SET -------------------------------
     def update_medicine_count(self, unit_id, medicine, new_qty):
@@ -52,7 +52,7 @@ class DatabaseHandler:
             alert["active"] = False
             alert["cleared_at"] = self.clock()
 
-    def raise_qty_alarm(self, medicine: str, qty: int, threshold: int) -> None:
+    def raise_qty_alarm(self, medicine, qty, threshold):
         # check if a quantity alarm already exists for a given medicine
         alert = self.find_existing(QTY_ALERT, "medicine", medicine)
         #if exists just update qty
@@ -62,10 +62,10 @@ class DatabaseHandler:
         # if not, add new alarm
         self.add({"type": QTY_ALERT, "medicine": medicine, "qty": qty, "threshold": threshold})
 
-    def clear_qty_alarm(self, medicine: str) -> None:
+    def clear_qty_alarm(self, medicine):
         self.clear(self.find_existing(QTY_ALERT, "medicine", medicine))
 
-    def raise_status_alarm(self, unit_id: str, status: Status) -> None:
+    def raise_status_alarm(self, unit_id, status):
         alert = self.find_existing(STATUS_ALERT, "unit_id", unit_id)
         if alert is not None:
             if alert["status"] == status.value:
@@ -73,11 +73,11 @@ class DatabaseHandler:
             self.clear(alert)
         self.add({"type": STATUS_ALERT, "unit_id": unit_id, "status": status.value})
 
-    def clear_status_alarm(self, unit_id: str) -> None:
+    def clear_status_alarm(self, unit_id):
         self.clear(self.find_existing(STATUS_ALERT, "unit_id", unit_id))
 
     # FOR GUI ------
-    def get_active_alerts(self) -> list[dict[str, Any]]:
+    def get_active_alerts(self):
         return [a for a in self.alerts if a["active"]]
 
     def get_all_info(self):
