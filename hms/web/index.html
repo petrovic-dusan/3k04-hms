@@ -1,0 +1,523 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Medication cabinets</title>
+<style>
+  :root {
+    --paper: #E8EDF0;
+    --surface: #FFFFFF;
+    --ink: #17252D;
+    --muted: #56666F;
+    --line: #C9D3D9;
+    --accent: #1D5C77;
+
+    --ok: #2B7A52;       --ok-soft: #DCEEE3;
+    --suspect: #9A620A;  --suspect-soft: #F6E8CC;
+    --fault: #B3261E;    --fault-soft: #F6DAD7;
+    --offline: #66737B;  --offline-soft: #E1E6E9;
+
+    --radius-card: 10px;
+    --radius-small: 6px;
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    color: var(--ink);
+    background: var(--paper);
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; min-height: 100vh; line-height: 1.45; }
+  button { font: inherit; color: inherit; }
+  :focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+
+  .top {
+    display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between;
+    gap: 0.5rem 1.5rem; padding: 1.25rem clamp(1rem, 4vw, 2.5rem) 0;
+    max-width: 78rem; margin: 0 auto;
+  }
+  .top h1 { margin: 0; font-size: 1.75rem; font-weight: 650; letter-spacing: -0.01em; }
+  .freshness { color: var(--muted); font-size: 0.875rem; display: flex; align-items: center; gap: 0.4rem; }
+  .freshness .dot { width: 0.55rem; height: 0.55rem; border-radius: 50%; background: var(--ok); }
+  .freshness.stale .dot { background: var(--fault); }
+  .freshness.waiting .dot { background: var(--offline); }
+
+  .banner-wrap { max-width: 78rem; margin: 1rem auto 0; padding: 0 clamp(1rem, 4vw, 2.5rem); }
+  .banner {
+    padding: 0.75rem 1rem;
+    border-left: 4px solid var(--fault); background: var(--fault-soft); border-radius: var(--radius-small);
+  }
+  .banner strong { display: block; }
+
+  .tabs {
+    display: flex; gap: 0.25rem; max-width: 78rem; margin: 1.25rem auto 0;
+    padding: 0 clamp(1rem, 4vw, 2.5rem); border-bottom: 1px solid var(--line);
+  }
+  .tab {
+    background: none; border: 0; border-bottom: 3px solid transparent; margin-bottom: -1px;
+    padding: 0.6rem 0.9rem; font-size: 1rem; font-weight: 550; color: var(--muted); cursor: pointer;
+  }
+  .tab[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--accent); }
+  .tab:hover { color: var(--ink); }
+
+  main { max-width: 78rem; margin: 0 auto; padding: 1.5rem clamp(1rem, 4vw, 2.5rem) 7rem; }
+  main.stale { opacity: 0.55; }
+  .summary { margin: 0 0 1.25rem; color: var(--muted); }
+  .empty { color: var(--muted); max-width: 40rem; }
+
+  .cabinets {
+    list-style: none; margin: 0; padding: 0;
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr)); gap: 1rem;
+  }
+  .cabinet {
+    background: var(--surface); border-radius: var(--radius-card); padding: 1rem 1rem 1.1rem;
+    display: grid; justify-items: center; gap: 0.6rem; text-align: center;
+    border: 1px solid var(--line); border-top: 5px solid var(--status);
+  }
+  .cabinet svg { width: 4.25rem; height: 5.25rem; overflow: visible; }
+  .cabinet .id { font-size: 1.125rem; font-weight: 650; overflow-wrap: anywhere; }
+
+  .status { --status: var(--offline); --soft: var(--offline-soft); }
+  .status[data-status="OK"]      { --status: var(--ok);      --soft: var(--ok-soft); }
+  .status[data-status="SUSPECT"] { --status: var(--suspect); --soft: var(--suspect-soft); }
+  .status[data-status="FAULT"]   { --status: var(--fault);   --soft: var(--fault-soft); }
+  .status[data-status="LOW"]     { --status: var(--suspect); --soft: var(--suspect-soft); }
+
+  .body   { fill: var(--surface); stroke: var(--ink); stroke-width: 2; }
+  .drawer { fill: var(--soft); stroke: var(--status); stroke-width: 1.5; }
+  .handle { stroke: var(--status); stroke-width: 2; stroke-linecap: round; }
+  .cabinet[data-status="OFFLINE"] .body { stroke: var(--offline); stroke-dasharray: 4 3; }
+  .cabinet[data-status="OFFLINE"] .drawer { fill: none; }
+  .badge-bg { fill: var(--status); stroke: var(--surface); stroke-width: 2.5; }
+  .badge-mark { stroke: #fff; stroke-width: 2.4; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+
+  .pill {
+    display: inline-flex; align-items: center; gap: 0.35rem; padding: 0.15rem 0.6rem 0.15rem 0.45rem;
+    border-radius: 999px; background: var(--soft); color: var(--status); font-weight: 600; font-size: 0.9rem;
+  }
+  .pill svg { width: 1rem; height: 1rem; }
+  .pill .badge-mark { stroke: currentColor; }
+
+  .table-wrap { overflow-x: auto; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-card); }
+  table { border-collapse: collapse; width: 100%; font-variant-numeric: tabular-nums; }
+  th, td { padding: 0.65rem 1rem; text-align: right; border-bottom: 1px solid var(--line); white-space: nowrap; }
+  thead th { font-weight: 600; color: var(--muted); font-size: 0.9rem; vertical-align: bottom; }
+  tbody tr:last-child > * { border-bottom: 0; }
+  th[scope="row"], thead th:first-child { text-align: left; position: sticky; left: 0; background: var(--surface); }
+  th[scope="row"] { font-weight: 600; }
+  .total { border-left: 1px solid var(--line); font-weight: 650; }
+  td.zero { color: var(--fault); font-weight: 600; }
+  td.none { color: var(--muted); }
+  tr.low > * { background: var(--suspect-soft); }
+  tr.low th[scope="row"] { box-shadow: inset 4px 0 0 var(--suspect); }
+  .min { display: block; font-size: 0.8rem; font-weight: 500; color: var(--suspect); }
+  .unit-head { display: inline-flex; align-items: center; gap: 0.35rem; }
+  .unit-head .mini { width: 0.6rem; height: 0.6rem; border-radius: 2px; background: var(--status); }
+  .legend { margin: 0.75rem 0 0; color: var(--muted); font-size: 0.875rem; }
+
+  .alert-button {
+    position: fixed; right: clamp(1rem, 3vw, 2rem); bottom: clamp(1rem, 3vw, 2rem); z-index: 10;
+    display: inline-flex; align-items: center; gap: 0.5rem;
+    padding: 0.7rem 1.1rem 0.7rem 0.9rem; border-radius: 999px; border: 0; cursor: pointer;
+    background: var(--ink); color: #fff; font-size: 1.125rem; font-weight: 650;
+    box-shadow: 0 6px 20px rgba(23, 37, 45, 0.28);
+  }
+  .alert-button svg { width: 1.5rem; height: 1.5rem; }
+  .alert-button.has-alerts { background: var(--fault); }
+  .alert-button .count { font-variant-numeric: tabular-nums; min-width: 1ch; }
+  .alert-button.bump { animation: bump 0.6s ease-out; }
+  @keyframes bump { 0% { transform: scale(1); } 35% { transform: scale(1.15); } 100% { transform: scale(1); } }
+
+  .alert-panel {
+    position: fixed; right: clamp(1rem, 3vw, 2rem); bottom: calc(clamp(1rem, 3vw, 2rem) + 4rem); z-index: 11;
+    width: min(26rem, calc(100vw - 2rem)); max-height: min(32rem, calc(100vh - 8rem));
+    display: flex; flex-direction: column;
+    background: var(--surface); border-radius: var(--radius-card); border: 1px solid var(--line);
+    box-shadow: 0 16px 40px rgba(23, 37, 45, 0.3);
+    transform-origin: bottom right; transition: opacity 0.15s ease, transform 0.15s ease;
+  }
+  .alert-panel[hidden] { display: none; }
+  .alert-panel.opening { opacity: 0; transform: scale(0.96) translateY(6px); }
+  .panel-head { display: flex; align-items: center; justify-content: space-between; padding: 0.9rem 1rem; border-bottom: 1px solid var(--line); }
+  .panel-head h2 { margin: 0; font-size: 1.125rem; }
+  .close { background: none; border: 0; padding: 0.25rem 0.5rem; font-size: 1.5rem; line-height: 1; cursor: pointer; color: var(--muted); border-radius: var(--radius-small); }
+  .close:hover { color: var(--ink); background: var(--paper); }
+  .alert-list { list-style: none; margin: 0; padding: 0.25rem 0; overflow-y: auto; }
+  .alert-item { display: grid; grid-template-columns: 1.5rem 1fr; gap: 0.15rem 0.75rem; padding: 0.75rem 1rem; }
+  .alert-item + .alert-item { border-top: 1px solid var(--line); }
+  .alert-item svg { width: 1.5rem; height: 1.5rem; grid-row: span 3; margin-top: 0.1rem; }
+  .alert-item .title { font-weight: 600; }
+  .alert-item .detail, .alert-item .since { color: var(--muted); font-size: 0.9rem; }
+  .panel-empty { padding: 1rem; color: var(--muted); margin: 0; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .alert-panel { transition: none; }
+    .alert-button.bump { animation: none; }
+  }
+</style>
+</head>
+<body>
+
+<header class="top">
+  <h1>Medication cabinets</h1>
+  <p class="freshness waiting" id="freshness" aria-live="polite"><span class="dot" aria-hidden="true"></span><span id="freshness-text">Connecting to the HMS system…</span></p>
+</header>
+
+<div class="banner-wrap" id="stale-banner" role="alert" hidden>
+  <div class="banner">
+    <strong id="stale-title">Data is not updating.</strong>
+    <span>The page keeps showing the last data it received. Check that the HMS system is running.</span>
+  </div>
+</div>
+
+<nav class="tabs" role="tablist" aria-label="Views">
+  <button class="tab" role="tab" id="tab-cabinets" aria-controls="panel-cabinets" aria-selected="true">Cabinets</button>
+  <button class="tab" role="tab" id="tab-stock" aria-controls="panel-stock" aria-selected="false" tabindex="-1">Stock</button>
+</nav>
+
+<main id="main">
+  <section id="panel-cabinets" role="tabpanel" aria-labelledby="tab-cabinets">
+    <p class="summary" id="cabinet-summary"></p>
+    <ul class="cabinets" id="cabinet-list"></ul>
+    <p class="empty" id="cabinet-empty" hidden>No cabinets have reported yet. Each cabinet appears here after it sends its first status message.</p>
+  </section>
+
+  <section id="panel-stock" role="tabpanel" aria-labelledby="tab-stock" hidden>
+    <div class="table-wrap" id="stock-wrap"><table id="stock-table"></table></div>
+    <p class="legend" id="stock-legend">Highlighted rows are below their minimum total. A dash means the cabinet hasn't reported that medicine.</p>
+    <p class="empty" id="stock-empty" hidden>No stock levels have been reported yet. They appear here as cabinets send inventory updates.</p>
+  </section>
+</main>
+
+<button class="alert-button" id="alert-button" aria-haspopup="dialog" aria-expanded="false" aria-controls="alert-panel">
+  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.2 22 20.5H2z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M12 9.5v5" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/><circle cx="12" cy="17.6" r="1.25" fill="currentColor"/></svg>
+  <span class="count" id="alert-count">0</span>
+</button>
+
+<section class="alert-panel" id="alert-panel" role="dialog" aria-labelledby="alert-panel-title" hidden>
+  <div class="panel-head">
+    <h2 id="alert-panel-title">Active alerts</h2>
+    <button class="close" id="alert-close" aria-label="Close alerts">×</button>
+  </div>
+  <ul class="alert-list" id="alert-list"></ul>
+  <p class="panel-empty" id="alert-empty">No active alerts. Alerts appear here when stock runs low or a cabinet reports a problem, and clear themselves once it's fixed.</p>
+</section>
+
+<script>
+"use strict";
+const POLL_MS = 500;
+const STALE_MS = 2000;
+const REQUEST_TIMEOUT_MS = 1500;
+
+const STATUS = {
+  OK:      { label: "OK",      mark: "M7 12.5l3.2 3.2L17 9" },
+  SUSPECT: { label: "Suspect", mark: "M9.6 9.4a2.5 2.5 0 1 1 3.4 2.3c-.7.3-1 .8-1 1.5v.4 M12 16.6v.1" },
+  FAULT:   { label: "Fault",   mark: "M8.5 8.5l7 7 M15.5 8.5l-7 7" },
+  OFFLINE: { label: "Offline", mark: "M8 12h8" },
+  LOW:     { label: "Low stock", mark: "M12 7v6.2 M12 16.8v.1" },
+};
+const statusInfo = (s) => STATUS[s] || { label: s || "Unknown", mark: "M8 12h8" };
+
+let data = null;
+let dataTime = null;
+const $ = (id) => document.getElementById(id);
+const svgNS = "http://www.w3.org/2000/svg";
+
+function el(tag, attrs = {}, text) {
+  const node = tag.startsWith("svg:") ? document.createElementNS(svgNS, tag.slice(4)) : document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs)) node.setAttribute(k, v);
+  if (text !== undefined) node.textContent = text;
+  return node;
+}
+const titleCase = (s) => s.charAt(0).toUpperCase() + s.slice(1);
+
+function badgeSvg(status, size = 24) {
+  const svg = el("svg:svg", { viewBox: "0 0 24 24", "aria-hidden": "true", width: size, height: size });
+  svg.append(el("svg:path", { class: "badge-mark", d: statusInfo(status).mark }));
+  return svg;
+}
+
+async function poll() {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), REQUEST_TIMEOUT_MS);
+  try {
+    const res = await fetch("/api/snapshot", { cache: "no-store", signal: ctrl.signal });
+    const body = await res.json();
+    if (res.ok) {
+      data = body;
+      dataTime = performance.now() - body.age * 1000;
+      render();
+    }
+  } catch (_) {
+  } finally {
+    clearTimeout(timer);
+    updateFreshness();
+    setTimeout(poll, POLL_MS);
+  }
+}
+
+function updateFreshness() {
+  const box = $("freshness"), text = $("freshness-text");
+  if (dataTime === null) {
+    box.className = "freshness waiting";
+    text.textContent = "Connecting to the HMS system…";
+    return;
+  }
+  const ageMs = performance.now() - dataTime;
+  const stale = ageMs > STALE_MS;
+  box.className = "freshness" + (stale ? " stale" : "");
+  text.textContent = stale ? `Last updated ${formatDuration(ageMs)} ago` : "Live";
+  $("stale-banner").hidden = !stale;
+  $("stale-title").textContent = `Data is not updating. Last update ${formatDuration(ageMs)} ago.`;
+  $("main").classList.toggle("stale", stale);
+}
+
+function formatDuration(ms) {
+  const s = Math.round(ms / 1000);
+  if (s < 60) return `${s} s`;
+  const m = Math.floor(s / 60);
+  if (m < 60) return `${m} min`;
+  return `${Math.floor(m / 60)} h ${m % 60} min`;
+}
+
+function render() {
+  renderCabinets();
+  renderStock();
+  renderAlerts();
+}
+
+const cabinetCards = new Map();
+
+function cabinetSvg() {
+  const svg = el("svg:svg", { viewBox: "0 0 68 84", "aria-hidden": "true" });
+  svg.append(el("svg:rect", { class: "body", x: 4, y: 6, width: 52, height: 74, rx: 4 }));
+  for (let i = 0; i < 4; i++) {
+    const y = 13 + i * 16.5;
+    svg.append(el("svg:rect", { class: "drawer", x: 10, y, width: 40, height: 12.5, rx: 2 }));
+    svg.append(el("svg:line", { class: "handle", x1: 24, y1: y + 6.25, x2: 36, y2: y + 6.25 }));
+  }
+  const badge = el("svg:g", { transform: "translate(46 0)" });
+  badge.append(el("svg:circle", { class: "badge-bg", cx: 11, cy: 11, r: 11 }));
+  const mark = el("svg:path", { class: "badge-mark" });
+  mark.setAttribute("transform", "translate(-1 -1)");
+  badge.append(mark);
+  svg.append(badge);
+  return svg;
+}
+
+function renderCabinets() {
+  const units = data.units;
+  const seen = new Set();
+  const list = $("cabinet-list");
+  units.forEach((u, index) => {
+    seen.add(u.unit_id);
+    let card = cabinetCards.get(u.unit_id);
+    if (!card) {
+      card = el("li", { class: "cabinet status" });
+      card.append(cabinetSvg(), el("div", { class: "id" }, u.unit_id));
+      const pill = el("span", { class: "pill" });
+      pill.append(badgeSvg(u.status, 16), el("span", { class: "label" }));
+      card.append(pill);
+      cabinetCards.set(u.unit_id, card);
+    }
+    if (list.children[index] !== card) list.insertBefore(card, list.children[index] || null);
+    if (card.dataset.status !== u.status) {
+      const info = statusInfo(u.status);
+      card.dataset.status = u.status;
+      card.setAttribute("aria-label", `${u.unit_id}: ${info.label}`);
+      card.querySelector("g .badge-mark").setAttribute("d", info.mark);
+      card.querySelector(".pill .badge-mark").setAttribute("d", info.mark);
+      card.querySelector(".pill .label").textContent = info.label;
+    }
+  });
+  for (const [id, card] of cabinetCards) {
+    if (!seen.has(id)) { card.remove(); cabinetCards.delete(id); }
+  }
+
+  $("cabinet-empty").hidden = units.length > 0;
+  const counts = {};
+  for (const u of units) counts[u.status] = (counts[u.status] || 0) + 1;
+  const parts = ["OK", "SUSPECT", "FAULT", "OFFLINE"]
+    .filter((s) => counts[s])
+    .map((s) => `${counts[s]} ${s === "OK" ? "OK" : statusInfo(s).label.toLowerCase()}`);
+  $("cabinet-summary").textContent = units.length
+    ? `${units.length} ${units.length === 1 ? "cabinet" : "cabinets"}: ${parts.join(", ")}`
+    : "";
+}
+
+let stockLayout = "";
+
+function renderStock() {
+  const statusOf = new Map(data.units.map((u) => [u.unit_id, u.status]));
+  const qty = new Map(data.inventory.map((e) => [`${e.unit_id}\u0000${e.medicine}`, e.qty]));
+  const lowAlerts = new Map(
+    data.alerts.filter((a) => a.type === "inventoryLow").map((a) => [a.medicine, a])
+  );
+  const units = [...new Set([...data.units.map((u) => u.unit_id), ...data.inventory.map((e) => e.unit_id)])].sort();
+  const medicines = [...new Set([...data.inventory.map((e) => e.medicine), ...lowAlerts.keys()])].sort();
+
+  const empty = medicines.length === 0;
+  $("stock-empty").hidden = !empty;
+  $("stock-wrap").hidden = empty;
+  $("stock-legend").hidden = empty;
+  if (empty) return;
+
+  const table = $("stock-table");
+  const layout = JSON.stringify([units, medicines]);
+  if (layout !== stockLayout) {
+    stockLayout = layout;
+    table.replaceChildren();
+    const caption = el("caption", { class: "visually-hidden", style: "position:absolute;left:-9999px" }, "Stock by medicine and cabinet");
+    const head = el("tr");
+    head.append(el("th", { scope: "col" }, "Medicine"));
+    for (const u of units) {
+      const th = el("th", { scope: "col", class: "status", "data-unit": u });
+      const span = el("span", { class: "unit-head" });
+      span.append(el("span", { class: "mini", "aria-hidden": "true" }), el("span", {}, u));
+      th.append(span);
+      head.append(th);
+    }
+    head.append(el("th", { scope: "col", class: "total" }, "Total"));
+    const thead = el("thead"); thead.append(head);
+    const tbody = el("tbody");
+    for (const m of medicines) {
+      const tr = el("tr", { "data-medicine": m });
+      tr.append(el("th", { scope: "row" }, titleCase(m)));
+      for (const u of units) tr.append(el("td", { "data-unit": u }));
+      tr.append(el("td", { class: "total" }));
+      tbody.append(tr);
+    }
+    table.append(caption, thead, tbody);
+  }
+
+  for (const th of table.querySelectorAll("thead th[data-unit]")) {
+    th.dataset.status = statusOf.get(th.dataset.unit) || "OFFLINE";
+    th.title = `${th.dataset.unit}: ${statusInfo(statusOf.get(th.dataset.unit)).label}`;
+  }
+  for (const tr of table.tBodies[0].rows) {
+    const m = tr.dataset.medicine;
+    let total = 0;
+    for (const td of tr.querySelectorAll("td[data-unit]")) {
+      const v = qty.get(`${td.dataset.unit}\u0000${m}`);
+      td.className = v === undefined ? "none" : v === 0 ? "zero" : "";
+      td.textContent = v === undefined ? "—" : String(v);
+      if (v !== undefined) total += v;
+    }
+    const alert = lowAlerts.get(m);
+    tr.classList.toggle("low", Boolean(alert));
+    const totalCell = tr.querySelector("td.total");
+    totalCell.textContent = String(total);
+    if (alert) totalCell.append(el("span", { class: "min" }, `minimum ${alert.threshold}`));
+  }
+}
+
+let lastAlertCount = 0;
+let alertSignature = "";
+
+function describeAlert(a) {
+  if (a.type === "inventoryLow") {
+    return {
+      status: "LOW",
+      title: `${titleCase(a.medicine)} is running low`,
+      detail: `${a.qty} left across all cabinets. The minimum is ${a.threshold}.`,
+    };
+  }
+  const titles = {
+    OFFLINE: `${a.unit_id} is offline`,
+    FAULT: `${a.unit_id} reports a fault`,
+    SUSPECT: `${a.unit_id} reports a possible problem`,
+  };
+  const details = {
+    OFFLINE: "No messages received recently, or the cabinet reported itself offline. Requests from it are denied.",
+    FAULT: "Requests from this cabinet are denied until it reports OK.",
+    SUSPECT: "Requests from this cabinet are denied until it reports OK.",
+  };
+  return {
+    status: a.status,
+    title: titles[a.status] || `${a.unit_id}: ${statusInfo(a.status).label}`,
+    detail: details[a.status] || "",
+  };
+}
+
+function renderAlerts() {
+  const alerts = [...data.alerts].sort((a, b) => b.raised_at - a.raised_at);
+  const n = alerts.length;
+  const button = $("alert-button");
+  $("alert-count").textContent = String(n);
+  button.classList.toggle("has-alerts", n > 0);
+  button.setAttribute("aria-label", `${n} active ${n === 1 ? "alert" : "alerts"}. Show details.`);
+  if (n > lastAlertCount) {
+    button.classList.remove("bump");
+    void button.offsetWidth;
+    button.classList.add("bump");
+  }
+  lastAlertCount = n;
+
+  const signature = JSON.stringify(alerts.map((a) => [a.id, a.qty, a.threshold, a.status]));
+  const list = $("alert-list");
+  if (signature !== alertSignature) {
+    alertSignature = signature;
+    list.replaceChildren();
+    for (const a of alerts) {
+      const d = describeAlert(a);
+      const li = el("li", { class: "alert-item status", "data-status": d.status });
+      const icon = badgeSvg(d.status);
+      icon.querySelector("path").before(el("svg:circle", { cx: 12, cy: 12, r: 11, style: "fill: var(--status)" }));
+      li.append(icon, el("div", { class: "title" }, d.title), el("div", { class: "detail" }, d.detail),
+                el("div", { class: "since", "data-raised": a.raised_at }));
+      list.append(li);
+    }
+  }
+  $("alert-empty").hidden = n > 0;
+  list.hidden = n === 0;
+  const now = data.stamp;
+  for (const since of list.querySelectorAll(".since")) {
+    const raised = Number(since.dataset.raised);
+    const clock = new Date(raised * 1000).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+    since.textContent = `Since ${clock} (${formatDuration(Math.max(0, now - raised) * 1000)} ago)`;
+  }
+}
+
+function setPanel(open) {
+  const panel = $("alert-panel"), button = $("alert-button");
+  if (open === !panel.hidden) return;
+  button.setAttribute("aria-expanded", String(open));
+  if (open) {
+    panel.hidden = false;
+    panel.classList.add("opening");
+    requestAnimationFrame(() => panel.classList.remove("opening"));
+    $("alert-close").focus();
+  } else {
+    panel.hidden = true;
+    button.focus();
+  }
+}
+$("alert-button").addEventListener("click", () => setPanel($("alert-panel").hidden));
+$("alert-close").addEventListener("click", () => setPanel(false));
+document.addEventListener("keydown", (e) => { if (e.key === "Escape") setPanel(false); });
+document.addEventListener("pointerdown", (e) => {
+  if (!$("alert-panel").hidden && !e.target.closest("#alert-panel, #alert-button")) setPanel(false);
+});
+
+const tabs = [...document.querySelectorAll('[role="tab"]')];
+function selectTab(tab) {
+  for (const t of tabs) {
+    const selected = t === tab;
+    t.setAttribute("aria-selected", String(selected));
+    t.tabIndex = selected ? 0 : -1;
+    $(t.getAttribute("aria-controls")).hidden = !selected;
+  }
+  tab.focus();
+}
+for (const t of tabs) {
+  t.addEventListener("click", () => selectTab(t));
+  t.addEventListener("keydown", (e) => {
+    const i = tabs.indexOf(t);
+    if (e.key === "ArrowRight") selectTab(tabs[(i + 1) % tabs.length]);
+    if (e.key === "ArrowLeft") selectTab(tabs[(i - 1 + tabs.length) % tabs.length]);
+  });
+}
+
+setInterval(updateFreshness, 250);
+poll();
+</script>
+</body>
+</html>
