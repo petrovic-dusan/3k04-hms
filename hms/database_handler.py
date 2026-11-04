@@ -13,6 +13,7 @@ class DatabaseHandler:
         self.inventory = {}
         self.statuses = {}
         self.alerts = []
+        self._next_id = itertools.count(1)
 
     # REGULAR GET/SET -------------------------------
     def update_medicine_count(self, unit_id, medicine, new_qty):
@@ -43,7 +44,7 @@ class DatabaseHandler:
 
     def add(self, fields):
         self.alerts.append(
-            {**fields, "raised_at": self.clock(),
+            {"id": next(self._next_id), **fields, "raised_at": self.clock(),
                 "active": True, "cleared_at": None}
         )
 
@@ -93,6 +94,7 @@ class DatabaseHandler:
             ],
             "alerts": [
                 {
+                    "id": a["id"],
                     "type": a["type"],
                     "unit_id": a.get("unit_id", ""),
                     "status": a.get("status", ""),

@@ -1,0 +1,35 @@
+# Saved changes are picked up while fake_adcs.py is running.
+# Inventory and request are sent on start and whenever their own section changes
+# (or every period seconds if period > 0). To resend the same request, toggle enabled.
+
+status:
+  period: 1.0               # seconds between status reports
+  units:                    # OK, FAULT, SUSPECT or OFFLINE
+    adc_01: OK
+    adc_02: OK
+    adc_03: FAULT
+# Remove or comment out a unit here to make it go silent (HMS marks it OFFLINE after 15 s).
+# Inventory and request messages also count as signs of life.
+
+inventory:
+  enabled: true
+  period: 0                 # 0: send only on start and when this section changes; > 0: repeat every N seconds
+  units:
+    adc_01:
+      morphine: 5
+      insulin: 5
+      amoxicillin: 20
+    adc_02:
+      morphine: 8
+      insulin: 30
+    adc_03:
+      amoxicillin: 15
+
+request:
+  enabled: false
+  unit_id: adc_03
+  user_id: nurse_001
+  medicine: amoxicillin
+  qty: 10
+  period: 0                 # 0: send only on start and when this section changes; > 0: repeat every N seconds
+# Values are sent as written. Leave out a field, or use a wrong value, to test HMS rejecting it.
