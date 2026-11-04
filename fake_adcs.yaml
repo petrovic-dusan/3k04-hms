@@ -7,7 +7,7 @@ status:
   units:                    # OK, FAULT, SUSPECT or OFFLINE
     adc_01: OK
     adc_02: OK
-    adc_03: FAULT
+    adc_03: OK
 # Remove or comment out a unit here to make it go silent (HMS marks it OFFLINE after 15 s).
 # Inventory and request messages also count as signs of life.
 
@@ -24,12 +24,12 @@ inventory:
       insulin: 30
     adc_03:
       amoxicillin: 15
-
+      morphine: 20
 request:
-  enabled: false
+  enabled: true
   unit_id: adc_03
   user_id: nurse_001
   medicine: amoxicillin
-  qty: 10
+  qty: 16
   period: 0                 # 0: send only on start and when this section changes; > 0: repeat every N seconds
 # Values are sent as written. Leave out a field, or use a wrong value, to test HMS rejecting it.

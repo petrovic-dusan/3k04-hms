@@ -9,7 +9,7 @@ STATUS_ALERT = "unitStatus"
 
 class DatabaseHandler:
     def __init__(self):
-        self.clock =  time.monotonic
+        self.clock =  time.time
         self.inventory = {}
         self.statuses = {}
         self.alerts = []

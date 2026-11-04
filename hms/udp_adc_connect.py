@@ -23,7 +23,7 @@ class UdpTransport:
             except ConnectionRefusedError:
                 continue
             try:
-                msg = AdcMsg.from_dict(json.loads(data))
+                msg = AdcMsg(json.loads(data))
             except (ValueError, KeyError, TypeError, AttributeError):
                 continue
             if self.units.get(msg.unit_id) == sender:
