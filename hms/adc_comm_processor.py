@@ -11,12 +11,13 @@ EXIT_ERROR = 1
 EXIT_NO_MSG = 2
 
 class ADCCommProcessor:
-    def __init__(self, dbhandler, publishFn):
+    def __init__(self, dbhandler, publishFn, logger):
         self.dbhandler = dbhandler
         self.publish = publishFn
         self.clock = time.monotonic
         self.q =  deque()
         self.known_adcs = {}
+        self.logger=logger
 
     def enqueue(self, msg):
         # for incoming messages, update frehsness and put in q for further processing
@@ -28,7 +29,10 @@ class ADCCommProcessor:
         self.check_freshness()
         if len(self.q) == 0:
             return EXIT_NO_MSG
-        return self.route_msg(self.q.popleft())
+        code, unit_id = self.route_msg(self.q.popleft())
+        if(code == EXIT_ERROR):
+            self.logger.msg_rejected("bad parse", unit_id)
+        return code
 
     def mark_seen(self, unit_id):
         self.known_adcs[unit_id] = self.clock()
@@ -43,21 +47,26 @@ class ADCCommProcessor:
 
     def route_msg(self, msg):
         if msg.message_type == MessageType.REQUEST:
-            return self.process_request_msg(msg)
-        if msg.message_type == MessageType.STATUS:
-            return self.process_status_msg(msg)
-        if msg.message_type == MessageType.INVENTORY:
-            return self.process_inventory_msg(msg)
-        return EXIT_ERROR
+            code = self.process_request_msg(msg)
+        elif msg.message_type == MessageType.STATUS:
+            code = self.process_status_msg(msg)
+        elif msg.message_type == MessageType.INVENTORY:
+            code = self.process_inventory_msg(msg)
+        else:
+            code = EXIT_ERROR
+        return code, msg.unit_id
 
     def process_request_msg(self, msg):
         try:
+            unit_status = self.dbhandler.get_status(msg.unit_id)
             qty_available = self.dbhandler.get_unit_inventory(msg.unit_id, msg.medicine)
-            response_approval = (self.dbhandler.get_status(msg.unit_id) == Status.OK
+            response_approval = (unit_status == Status.OK
                                 and self.validate_user(msg.user_id)
                                 and msg.requested_qty <= qty_available)
             response = ResponseMessage(request_id=msg.request_id, approved=response_approval)
             self.publish(msg.unit_id, response.to_dict())
+            reason_if_denied = self.denial_reason(msg, unit_status, qty_available)
+            self.logger.request(msg, response_approval, reason_if_denied, qty_available, unit_status)
             return EXIT_OK
         except Exception:
             return EXIT_ERROR

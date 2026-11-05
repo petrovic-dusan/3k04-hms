@@ -30,3 +30,4 @@ MED_THRESHOLDS = {
     "amoxicillin": 30,
 }
 
+LOG_PATH = "hms_event_log.log"

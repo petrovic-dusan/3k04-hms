@@ -5,18 +5,22 @@ from hms.alarm_handler import AlarmHandler
 from hms.database_handler import DatabaseHandler
 from hms.udp_adc_connect import UdpTransport
 from hms.web_server import WebServer
-
+from hms.logger import EventLogger
 from hms.config import *
 
 def main() -> None:
-    db = DatabaseHandler()
+    logger = EventLogger()
+    db = DatabaseHandler(logger)
     transport = UdpTransport()
-    processor = ADCCommProcessor(db, transport.send)
+    processor = ADCCommProcessor(db, transport.send,logger)
     alarms = AlarmHandler(db)
     web = WebServer()
 
+
     for unit_id in ADC_UNITS:
         processor.mark_seen(unit_id)
+
+    logger.system_start(HMS_ADDRESS, WEB_ADDRESS, ADC_UNITS, MED_THRESHOLDS)
 
     print(f"HMS listening on {HMS_ADDRESS[0]}:{HMS_ADDRESS[1]}")
     print(f"Dashboard at http://{WEB_ADDRESS[0]}:{WEB_ADDRESS[1]}/")
@@ -42,7 +46,8 @@ def main() -> None:
     finally:
         web.stop()
         transport.close()
-
+        logger.system_stop()
+        logger.close()
 
 if __name__ == "__main__":
     main()
