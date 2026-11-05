@@ -113,6 +113,21 @@
   .unit-head .mini { width: 0.6rem; height: 0.6rem; border-radius: 2px; background: var(--status); }
   .legend { margin: 0.75rem 0 0; color: var(--muted); font-size: 0.875rem; }
 
+  /* columns for cabinets that are SUSPECT or OFFLINE: their counts may be out of date */
+  #stock-table .stale-col {
+    background: repeating-linear-gradient(-45deg, #FFF4B8 0 10px, #FFEC99 10px 20px);
+    box-shadow: inset 2px 0 0 #D9A400, inset -2px 0 0 #D9A400;
+    color: #6B5200;
+  }
+  #stock-table td.stale-col { font-style: italic; }
+  .stale-tag {
+    display: none; margin-top: 0.3rem; padding: 0.05rem 0.45rem; border-radius: var(--radius-small);
+    background: #D9A400; color: #fff; font-size: 0.75rem; font-weight: 700; letter-spacing: 0.06em;
+  }
+  th.stale-col .stale-tag { display: inline-block; }
+  .stale-legend { margin: 0.5rem 0 0; padding: 0.5rem 0.75rem; font-size: 0.875rem; color: #6B5200;
+    background: #FFF4B8; border-left: 4px solid #D9A400; border-radius: var(--radius-small); }
+
   .alert-button {
     position: fixed; right: clamp(1rem, 3vw, 2rem); bottom: clamp(1rem, 3vw, 2rem); z-index: 10;
     display: inline-flex; align-items: center; gap: 0.5rem;
@@ -183,6 +198,7 @@
   <section id="panel-stock" role="tabpanel" aria-labelledby="tab-stock" hidden>
     <div class="table-wrap" id="stock-wrap"><table id="stock-table"></table></div>
     <p class="legend" id="stock-legend">Highlighted rows are below their minimum total. A dash means the cabinet hasn't reported that medicine.</p>
+    <p class="stale-legend" id="stale-legend" hidden></p>
     <p class="empty" id="stock-empty" hidden>No stock levels have been reported yet. They appear here as cabinets send inventory updates.</p>
   </section>
 </main>
@@ -215,6 +231,7 @@ const STATUS = {
   LOW:     { label: "Low stock", mark: "M12 7v6.2 M12 16.8v.1" },
 };
 const statusInfo = (s) => STATUS[s] || { label: s || "Unknown", mark: "M8 12h8" };
+const STALE_STATUSES = new Set(["SUSPECT", "OFFLINE"]);
 
 let data = null;
 let dataTime = null;
@@ -372,7 +389,7 @@ function renderStock() {
       const th = el("th", { scope: "col", class: "status", "data-unit": u });
       const span = el("span", { class: "unit-head" });
       span.append(el("span", { class: "mini", "aria-hidden": "true" }), el("span", {}, u));
-      th.append(span);
+      th.append(span, el("br"), el("span", { class: "stale-tag" }, "STALE"));
       head.append(th);
     }
     head.append(el("th", { scope: "col", class: "total" }, "Total"));
@@ -388,16 +405,27 @@ function renderStock() {
     table.append(caption, thead, tbody);
   }
 
+  // a column is stale when its cabinet is SUSPECT or OFFLINE (or has never reported a status)
+  const staleUnits = new Set(units.filter((u) => STALE_STATUSES.has(statusOf.get(u) || "OFFLINE")));
   for (const th of table.querySelectorAll("thead th[data-unit]")) {
+    const stale = staleUnits.has(th.dataset.unit);
     th.dataset.status = statusOf.get(th.dataset.unit) || "OFFLINE";
-    th.title = `${th.dataset.unit}: ${statusInfo(statusOf.get(th.dataset.unit)).label}`;
+    th.classList.toggle("stale-col", stale);
+    th.title = `${th.dataset.unit}: ${statusInfo(statusOf.get(th.dataset.unit)).label}` +
+      (stale ? ". Counts may be out of date." : "");
   }
+  const staleList = [...staleUnits].map((u) => `${u} (${statusInfo(statusOf.get(u) || "OFFLINE").label.toLowerCase()})`);
+  $("stale-legend").hidden = staleList.length === 0;
+  $("stale-legend").textContent = staleList.length
+    ? `STALE: ${staleList.join(", ")}. ${staleList.length === 1 ? "This cabinet's" : "These cabinets'"} counts are the last ones received and may be out of date. Totals still include them.`
+    : "";
   for (const tr of table.tBodies[0].rows) {
     const m = tr.dataset.medicine;
     let total = 0;
     for (const td of tr.querySelectorAll("td[data-unit]")) {
       const v = qty.get(`${td.dataset.unit}\u0000${m}`);
       td.className = v === undefined ? "none" : v === 0 ? "zero" : "";
+      td.classList.toggle("stale-col", staleUnits.has(td.dataset.unit));
       td.textContent = v === undefined ? "—" : String(v);
       if (v !== undefined) total += v;
     }

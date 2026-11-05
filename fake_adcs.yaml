@@ -5,7 +5,7 @@
 status:
   period: 1.0               # seconds between status reports
   units:                    # OK, FAULT, SUSPECT or OFFLINE
-    # adc_01: OK
+    adc_01: OK
     adc_02: OK
     adc_03: OK
 # Remove or comment out a unit here to make it go silent (HMS marks it OFFLINE after 15 s).
